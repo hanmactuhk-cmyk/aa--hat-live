@@ -1,0 +1,51 @@
+{
+  "name": "hnstudio-musik-ai",
+  "version": "1.0.0",
+  "description": "Electron live vocal studio with Windows native audio",
+  "main": "electron/main.cjs",
+  "author": "Hoài Nguyễn Studio",
+  "license": "AGPL-3.0-only",
+  "scripts": {
+    "start": "electron .",
+    "check": "node tests/check.cjs",
+    "build:native": "cmake -S native -B build/native -A x64 && cmake --build build/native --config Release",
+    "dist": "electron-builder --win --x64 --publish never"
+  },
+  "devDependencies": {
+    "electron": "^38.0.0",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "studio.hoai.musikai",
+    "productName": "HNStudio Musik AI",
+    "asar": true,
+    "files": [
+      "electron/**/*",
+      "renderer/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "build/native/Release/hn-audio.exe",
+        "to": "native/hn-audio.exe"
+      }
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "HNStudio-Musik-AI-Setup-${version}-${arch}.${ext}"
+    },
+    "portable": {
+      "artifactName": "HNStudio-Musik-AI-${version}-${arch}.${ext}"
+    }
+  }
+}

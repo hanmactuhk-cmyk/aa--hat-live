@@ -1,0 +1,11 @@
+const {spawn}=require('node:child_process');
+const path=require('node:path');
+const exe=path.resolve('build/native/Release/hn-audio.exe');
+const child=spawn(exe,[],{windowsHide:true,stdio:['pipe','pipe','pipe']});
+let output='',error='',ready=false;
+const timer=setTimeout(()=>{console.error('FAIL: backend did not start/stop within 15 seconds',output,error);child.kill();process.exitCode=1;},15000);
+child.on('error',e=>{clearTimeout(timer);console.error('FAIL: backend launch',e.message);process.exitCode=1;});
+child.stdout.on('data',data=>{output+=data;for(const line of output.split('\n')){try{if(JSON.parse(line).event==='ready'&&!ready){ready=true;child.stdin.end('{"op":"quit"}\n');}}catch{}}});
+child.stderr.on('data',data=>error+=data);
+child.stdin.on('error',()=>{});
+child.on('exit',(code,signal)=>{clearTimeout(timer);if(code!==0||!ready){console.error(`FAIL: backend startup/shutdown code=${code} signal=${signal}\nSTDOUT:\n${output}\nSTDERR:\n${error}`);process.exitCode=1;}else console.log('Backend startup, JSON ready and clean shutdown passed');});

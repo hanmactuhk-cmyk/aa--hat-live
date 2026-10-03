@@ -8,7 +8,7 @@ Project mới: Electron UI + tiến trình native `hn-audio.exe`. Đây là mã 
 2. Vào **Actions → Windows Release x64 → Run workflow**. Workflow có sẵn `main.yml` và cũng chạy khi push `main` / `master`.
 3. Khi job thành công, tải artifact **HNStudio-Musik-AI-Windows-x64**: gồm portable `HNStudio-Musik-AI-1.0.0-x64.exe` và installer `HNStudio-Musik-AI-Setup-1.0.0-x64.exe`.
 
-Không cần sửa từng file. Workflow cài npm dependencies theo lockfile, tải JUCE 8.0.6 và nlohmann/json 3.11.3, build native Release x64, chạy DSP self-test, đóng gói Electron rồi kiểm tra native backend có trong gói trước khi upload EXE. Không cần GitHub token riêng. File EXE chưa ký số.
+Không cần sửa từng file. Workflow cài npm dependencies theo lockfile, tải JUCE 8.0.6 và nlohmann/json 3.11.3, build native Release x64, chạy bài tự kiểm tra DSP độc lập không khởi động backend hoặc thiết bị âm thanh, đóng gói Electron rồi kiểm tra native backend có trong gói trước khi upload EXE. Không cần GitHub token riêng. File EXE chưa ký số.
 
 ## Yêu cầu Windows
 
@@ -61,7 +61,7 @@ Cần Node.js 22, Visual Studio 2022 Desktop development with C++, CMake 3.24+, 
 npm ci
 npm run build:native
 npm run check
-.\build\native\Release\hn-audio.exe --self-test
+.\build\native\Release\hn-dsp-selftest.exe
 npm run dist
 ```
 
@@ -70,7 +70,7 @@ npm run dist
 ## Kết quả kiểm tra khi tạo project
 
 - PASS: JavaScript syntax cho main/preload/renderer; kiểm tra ID UI và cấu hình đóng gói native.
-- PASS: `dsp_test.cpp` biên dịch bằng g++ C++20; kiểm tra tín hiệu hữu hạn / khác zero với EQ, pitch correction, Auto Key, reverb tại 44.1/48/96 kHz; silence qua gate.
+- PASS: `dsp_test.cpp` biên dịch bằng g++ C++20; workflow Windows biên dịch và chạy bài test native độc lập; kiểm tra tín hiệu hữu hạn / khác zero với EQ, pitch correction, Auto Key, reverb tại 44.1/48/96 kHz; silence qua gate.
 - PASS: đối chiếu API native với mã nguồn JUCE 8.0.6 đã tải.
 - CHƯA KIỂM CHỨNG: native Windows compilation/linking; electron-builder Windows packaging; Windows audio hardware; chất lượng DSP, mọi VST, độ trễ và capture clock dài hạn.
 - CHƯA KIỂM CHỨNG: render UI trong Chromium; runtime này không có browser executable và bản tải browser không hợp lệ.

@@ -22,7 +22,9 @@ jobs:
       - name: Build native audio
         run: cmake --build build/native --config Release --parallel 2
       - name: Native DSP self-test
-        run: ./build/native/Release/hn-audio.exe --self-test
+        run: ./build/native/Release/hn-dsp-selftest.exe
+      - name: Native backend startup smoke test
+        run: node tests/backend-smoke.cjs
       - name: Package Electron
         run: npm run dist
         env:

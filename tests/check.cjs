@@ -1,6 +1,6 @@
 const fs=require('node:fs');const cp=require('node:child_process');const assert=require('node:assert/strict');
 for(const file of ['electron/main.cjs','electron/preload.cjs','renderer/app.js']){const r=cp.spawnSync(process.execPath,['--check',file],{encoding:'utf8'});assert.equal(r.status,0,r.stderr);}
 const p=JSON.parse(fs.readFileSync('package.json'));assert(p.build.extraResources.some(x=>x.to==='native/hn-audio.exe'));
-for(const f of ['native/CMakeLists.txt','native/engine.cpp','native/loopback.h','native/dsp.h','.github/workflows/main.yml','renderer/index.html'])assert(fs.statSync(f).size>0);
+for(const f of ['native/CMakeLists.txt','native/engine.cpp','tests/dsp_test.cpp','native/loopback.h','native/dsp.h','.github/workflows/main.yml','renderer/index.html'])assert(fs.statSync(f).size>0);
 const html=fs.readFileSync('renderer/index.html','utf8'),js=fs.readFileSync('renderer/app.js','utf8');const ids=new Set([...html.matchAll(/id="([^"]+)"/g)].map(m=>m[1]));for(const m of js.matchAll(/\$\('([^']+)'\)/g))assert(ids.has(m[1])||m[1]==='key'||m[1]==='detected',`Missing UI id ${m[1]}`);
 console.log('JS syntax, UI bindings, native resources and project structure passed');

@@ -15,3 +15,11 @@ target_link_libraries(hn-audio PRIVATE juce::juce_audio_utils juce::juce_dsp nlo
 if(MSVC)
  target_compile_options(hn-audio PRIVATE /W4 /EHsc)
 endif()
+
+# Standalone DSP test: no Electron, GUI, audio devices or backend startup.
+add_executable(hn-dsp-selftest ../tests/dsp_test.cpp)
+target_compile_features(hn-dsp-selftest PRIVATE cxx_std_20)
+target_include_directories(hn-dsp-selftest PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+if(MSVC)
+ target_compile_options(hn-dsp-selftest PRIVATE /W4 /EHsc)
+endif()

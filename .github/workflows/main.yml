@@ -1,0 +1,42 @@
+name: Windows Release x64
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+  pull_request:
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install Electron dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Validate source
+        run: npm run check
+      - name: Configure native Release x64
+        run: cmake -S native -B build/native -A x64
+      - name: Build native audio
+        run: cmake --build build/native --config Release --parallel 2
+      - name: Native DSP self-test
+        run: ./build/native/Release/hn-audio.exe --self-test
+      - name: Package Electron
+        run: npm run dist
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Verify packaged backend
+        shell: pwsh
+        run: |
+          if (!(Test-Path dist/win-unpacked/resources/native/hn-audio.exe)) { throw "Native backend missing" }
+          $exe = Get-ChildItem dist/*.exe
+          if ($exe.Count -lt 2) { throw "Installer or portable EXE missing" }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HNStudio-Musik-AI-Windows-x64
+          path: |
+            dist/*.exe
+          if-no-files-found: error

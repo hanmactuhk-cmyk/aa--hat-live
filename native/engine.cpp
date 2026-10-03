@@ -92,7 +92,7 @@ public:
 };
 int main(int argc,char** argv){
  if(argc>1&&std::string(argv[1])=="--self-test"){VocalDSP dsp;dsp.prepare(48000);for(auto& b:dsp.eq)b.peak(48000,1000,0);double sum=0;for(int i=0;i<96000;++i){float x=dsp.process(.2f*std::sin(float(2*3.141592653589793*440*i/48000)));if(!std::isfinite(x))return 2;sum+=x*x;}if(sum<1)return 3;std::cout<<"DSP self-test passed\n";return 0;}
- juce::ScopedJuceInitialiser_GUI juceRuntime;Engine engine;
- std::thread input([&]{std::string line;while(std::getline(std::cin,line)){try{auto request=json::parse(line);if(request.value("op",std::string())=="quit")break;juce::MessageManager::callAsync([&,request]{auto id=request.value("id",0);try{send({{"id",id},{"ok",true},{"data",engine.command(request)}});}catch(const std::exception& e){send({{"id",id},{"ok",false},{"error",e.what()}});}});}catch(const std::exception& e){send({{"event","error"},{"message",e.what()}});}}juce::MessageManager::callAsync([]{juce::MessageManager::getInstance()->stopDispatchLoop();});});
+ juce::ScopedJuceInitialiser_GUI juceRuntime;auto engine=std::make_unique<Engine>();
+ std::thread input([&]{std::string line;while(std::getline(std::cin,line)){try{auto request=json::parse(line);if(request.value("op",std::string())=="quit")break;juce::MessageManager::callAsync([&,request]{auto id=request.value("id",0);try{send({{"id",id},{"ok",true},{"data",engine->command(request)}});}catch(const std::exception& e){send({{"id",id},{"ok",false},{"error",e.what()}});}});}catch(const std::exception& e){send({{"event","error"},{"message",e.what()}});}}juce::MessageManager::callAsync([]{juce::MessageManager::getInstance()->stopDispatchLoop();});});
  send({{"event","ready"},{"backend","JUCE/WASAPI process loopback"}});juce::MessageManager::getInstance()->runDispatchLoop();input.join();return 0;
 }

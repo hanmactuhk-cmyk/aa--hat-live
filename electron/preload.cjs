@@ -1,5 +1,6 @@
 const {contextBridge,ipcRenderer}=require('electron');
 contextBridge.exposeInMainWorld('studio',{
+ setLanguage:language=>ipcRenderer.invoke('ui:language',language),
  command:(op,data)=>ipcRenderer.invoke('audio:command',op,data),
  slot:(index,action,value)=>ipcRenderer.invoke('audio:slot',index,action,value),
  record:on=>ipcRenderer.invoke('audio:record',on),

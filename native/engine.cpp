@@ -54,16 +54,17 @@ class Engine final : public juce::AudioIODeviceCallback,public juce::Timer {
   auto mode=c.value("listenMode",std::string("mix"));listenMode=mode=="mic"?1:mode=="music"?2:0;
   dsp.tuneSpeed=c.value("tuneSpeed",35.f);dsp.chromatic=c.value("tuneMode",std::string("scale"))=="chromatic";
   micVolume=c.value("micVolume",.8f);musicVolume=c.value("musicVolume",.5f);masterVolume=c.value("masterVolume",.7f);
-  dsp.gate=c.value("gate",true);dsp.compressor=c.value("compressor",true);dsp.equalizer=c.value("eq",true);dsp.deesser=c.value("deesser",true);dsp.tune=c.value("tune",false);dsp.reverb=c.value("reverb",true);dsp.autoKey=c.value("autoKey",false);
+  dsp.gate=c.value("gate",true);dsp.compressor=c.value("compressor",true);dsp.equalizer=c.value("eq",true);dsp.deesser=c.value("deesser",true);dsp.tune=c.value("tune",false);dsp.reverb=c.value("reverb",true);dsp.autoKey=c.value("autoKey",true);
+  dsp.shortEcho=c.value("shortEcho",false);dsp.longEcho=c.value("longEcho",false);dsp.shortWet=c.value("shortWet",.15f);dsp.longWet=c.value("longWet",.18f);dsp.shortMs=c.value("shortMs",120.f);dsp.longMs=c.value("longMs",380.f);dsp.shortFeedback=c.value("shortFeedback",.2f);dsp.longFeedback=c.value("longFeedback",.4f);
   dsp.gateDb=c.value("gateDb",-50.f);dsp.threshold=c.value("compressorDb",-18.f);dsp.ratio=c.value("ratio",3.f);dsp.essAmount=c.value("essAmount",.5f);dsp.wet=c.value("reverbWet",.18f);dsp.tuneStrength=c.value("tuneStrength",.8f);
   std::string key=c.value("key",std::string("C"));dsp.minor=key.back()=='m';auto root=dsp.minor?key.substr(0,key.size()-1):key;const std::array<std::string,12> names{"C","C#","D","D#","E","F","F#","G","G#","A","A#","B"};auto it=std::find(names.begin(),names.end(),root);dsp.key=it==names.end()?0:int(it-names.begin());
   auto gains=c.value("eqGains",std::vector<float>(13,0));for(int i=0;i<13;++i)dsp.eq[i].peak(rate,VocalDSP::hz[i],gains.at(i));
  }
  void validate(const json& c){
-  for(auto name:{"gate","compressor","eq","deesser","tune","reverb","autoKey"})if(c.contains(name)&&!c[name].is_boolean())throw std::runtime_error("Invalid effect toggle");
+  for(auto name:{"gate","compressor","eq","deesser","tune","reverb","autoKey","shortEcho","longEcho"})if(c.contains(name)&&!c[name].is_boolean())throw std::runtime_error("Invalid effect toggle");
   for(auto name:{"micVolume","musicVolume","masterVolume"})if(c.contains(name)&&(!c[name].is_number()||c[name].get<double>()<0||c[name].get<double>()>2))throw std::runtime_error("Invalid volume");
   auto range=[&](const char* name,double lo,double hi){if(c.contains(name)&&(!c[name].is_number()||c[name].get<double>()<lo||c[name].get<double>()>hi))throw std::runtime_error(std::string("Invalid ")+name);};
-  range("gateDb",-90,0);range("compressorDb",-60,0);range("ratio",1,20);range("essAmount",0,1);range("reverbWet",0,1);range("tuneStrength",0,1);range("tuneSpeed",1,250);range("autoAmount",0,1);
+  range("gateDb",-90,0);range("compressorDb",-60,0);range("ratio",1,20);range("essAmount",0,1);range("reverbWet",0,1);range("tuneStrength",0,1);range("tuneSpeed",1,250);range("autoAmount",0,1);range("shortWet",0,.8);range("longWet",0,.8);range("shortMs",60,300);range("longMs",250,900);range("shortFeedback",0,.75);range("longFeedback",0,.75);
   if(c.contains("eqGains")){if(!c["eqGains"].is_array()||c["eqGains"].size()!=13)throw std::runtime_error("EQ needs 13 bands");for(auto& x:c["eqGains"])if(!x.is_number()||std::abs(x.get<double>())>18)throw std::runtime_error("Invalid EQ gain");}
   if(c.contains("sampleRate")&&c["sampleRate"]!=44100&&c["sampleRate"]!=48000&&c["sampleRate"]!=96000)throw std::runtime_error("Unsupported sample rate");
   if(c.contains("bufferSize")){int n=c["bufferSize"].get<int>();if(n<128||n>2048||(n&(n-1)))throw std::runtime_error("Invalid buffer size");}
@@ -108,6 +109,7 @@ public:
  Engine(){formats.addFormat(new juce::VST3PluginFormat());disk.startThread();settings={{"eqGains",std::vector<float>(13,0)}};startTimerHz(25);}
  ~Engine(){stopTimer();detach();music.stop();recorder.reset();for(auto& s:slots)if(s.plugin)s.plugin->releaseResources();devices.closeAudioDevice();disk.stopThread(5000);}
  json command(const json& request){std::string op=request.at("op");auto c=request.value("data",json::object());
+  if(op=="key-reset"){detach();dsp.resetKey();settings["autoKey"]=true;settings["tuneMode"]="scale";applyDSP(settings);attach();return settings;}
   if(op=="auto-vocal"){if(c.value("cancel",false)){detach();autoState=0;attach();return {{"running",false}};}if(!live)throw std::runtime_error("Bật LIVE và hát vào MIC trước khi Auto Vocal");if(autoState.load()!=0)throw std::runtime_error("Đang phân tích mic");detach();micAnalysis.reset(rate);autoFrames=0;autoState=1;attach();return {{"running",true},{"seconds",6}};}
   if(op=="auto-amount"){if(autoBase.empty())throw std::runtime_error("Chạy Auto Vocal trước khi chỉnh mức Auto");validate(c);detach();try{applyAuto(c.value("autoAmount",.7f));attach();return settings;}catch(...){attach();throw;}}
   if(op=="devices")return enumerate();
@@ -141,12 +143,14 @@ public:
    for(int ch=0;ch<2;++ch){float value=(ch==0?rawL:rawR)*limiterGain;value=std::clamp(std::isfinite(value)?value:0.f,-.97f,.97f);masterBus.setSample(ch,i,value);if(ch==0)l=value;else r=value;pt=std::max(pt,std::abs(value));}
    routing.write(out,outs,i,l,r);if(++waveCount>=unsigned(std::max(1,int(rate/3200)))){auto index=waveIndex++%128;waveform[index]=(l+r)*.5f;micWave[index]=(vocal.getSample(0,i)+vocal.getSample(1,i))*.5f*micVolume;musicWave[index]=(m[0]+m[1])*.5f*musicVolume;waveCount=0;}
   }
-  peaks[0]=pm;peaks[1]=pu;peaks[2]=pt;if(recorder&&!recorder->write(masterBus.getArrayOfReadPointers(),n))++recordDrops;
+  dsp.publishSpectrum();peaks[0]=pm;peaks[1]=pu;peaks[2]=pt;if(recorder&&!recorder->write(masterBus.getArrayOfReadPointers(),n))++recordDrops;
  }
  void timerCallback()override{
   if(autoState.load(std::memory_order_acquire)==2){detach();autoState=0;auto profile=micAnalysis.result();if(profile.valid){autoBase={{"gateDb",profile.gateDb},{"compressorDb",profile.compressorDb},{"ratio",profile.ratio},{"essAmount",profile.essAmount},{"reverbWet",profile.reverbWet},{"micVolume",profile.micVolume},{"eqGains",profile.eq}};applyAuto(settings.value("autoAmount",.7f));send({{"event","auto-complete"},{"settings",settings},{"message","Đã phân tích MIC và áp dụng Gate / Compressor / EQ / De-Esser / Reverb / Mic gain"}});}else send({{"event","error"},{"message","Auto Vocal chưa nhận đủ giọng hát. Kiểm tra MIC input, hát rõ 6 giây rồi thử lại."}});attach();}
+  if(settings.value("autoKey",true)&&dsp.keyReady.load()){const std::array<std::string,12> names{"C","C#","D","D#","E","F","F#","G","G#","A","A#","B"};auto detected=dsp.detectedKey.load();settings["key"]=names[detected%12]+(detected>=12?"m":"");}
+  json eqLevels=json::array();for(auto& level:dsp.eqLevels)eqLevels.push_back(level.load());
   auto loopError=music.takeError();if(!loopError.empty())send({{"event","error"},{"message",loopError}});json w=json::array(),mw=json::array(),uw=json::array();auto waveStart=waveIndex.load();for(unsigned i=0;i<128;++i){auto index=(waveStart+i)%128;w.push_back(waveform[index].load());mw.push_back(micWave[index].load());uw.push_back(musicWave[index].load());}
-  send({{"event","meters"},{"mic",peaks[0].load()},{"music",peaks[1].load()},{"master",peaks[2].load()},{"waveform",w},{"micWave",mw},{"musicWave",uw},{"live",live.load()},{"recording",recorder!=nullptr},{"autoRunning",autoState.load()==1},{"autoProgress",std::min(1.,autoFrames.load()/(rate*6))},{"loopback",music.healthy.load()},{"loopbackError",music.error.load()},{"captureDrops",music.queue.dropped.load()},{"recordDrops",recordDrops.load()},{"underruns",underruns.load()},{"detectedKey",dsp.detectedKey.load()},{"pitchHz",dsp.detectedHz.load()},{"targetHz",dsp.targetHz.load()},{"pitchConfidence",dsp.pitchConfidence.load()}});
+  send({{"event","meters"},{"mic",peaks[0].load()},{"music",peaks[1].load()},{"master",peaks[2].load()},{"waveform",w},{"micWave",mw},{"musicWave",uw},{"live",live.load()},{"recording",recorder!=nullptr},{"autoRunning",autoState.load()==1},{"autoProgress",std::min(1.,autoFrames.load()/(rate*6))},{"loopback",music.healthy.load()},{"loopbackError",music.error.load()},{"captureDrops",music.queue.dropped.load()},{"recordDrops",recordDrops.load()},{"underruns",underruns.load()},{"detectedKey",dsp.detectedKey.load()},{"pitchHz",dsp.detectedHz.load()},{"targetHz",dsp.targetHz.load()},{"pitchConfidence",dsp.pitchConfidence.load()},{"keyConfidence",dsp.keyConfidence.load()},{"keyReady",dsp.keyReady.load()},{"eqLevels",eqLevels}});
  }
 
 };

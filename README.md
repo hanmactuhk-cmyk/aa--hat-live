@@ -1,4 +1,4 @@
-# HNStudio Musik AI 1.2.0
+# HNStudio Musik AI 1.3.0
 
 Electron UI + native Windows x64 JUCE engine. Native audio is built in Release by GitHub Actions, packaged into both installer and portable EXE. UI animation runs outside the native audio process.
 
@@ -51,3 +51,13 @@ Audio Settings, built-in FX, EQ, AutoTune, project operations and VST parameters
 Auto Vocal measures six seconds of the live microphone and derives gate threshold, compressor threshold/ratio, EQ, de-essing, wet level and mic gain. It rejects insufficient/silent input. The overall Auto amount adjusts the measured vocal treatment; individual faders can override the result. External VST parameters stay manual. AutoTune offers ON/OFF, scale or chromatic correction, correction strength and retune speed, with detected/target pitch telemetry. Auto Key estimates a major/minor key from microphone note history; it cannot reliably infer accompaniment key from a single vocal note.
 
 Regression tests verify dry music stays sample-identical through an aggressively configured mic DSP/mock VST chain, actual 450 Hz mic output is corrected toward A440, and Auto Vocal settings react to input level at 44.1/48/96 kHz. Windows CI also launches the actual Electron renderer with a clearly mocked audio bridge to check popup/control wiring and capture UI previews. These UI tests do not establish physical ASIO routing correctness.
+
+## v1.3 Auto Key, echo, localization and crisp neon
+
+Auto Key is enabled by default. It waits for several distinct microphone notes before locking a major/minor key, then that key is applied directly in the pitch corrector and reflected in the key display. While evidence is insufficient, correction uses the nearest chromatic note. The manual key selection is disabled while Auto Key is on. Detect key again resets the note history. Existing saved projects retain their explicit Auto Key setting. This is microphone-based key estimation, not a guarantee of the accompaniment key.
+
+Short Echo and Long Echo are independent mic-only inserts with ON/OFF, level, delay time and feedback controls. EQ now publishes 13 real microphone band levels to illuminate the vertical faders. These visuals run in the Electron renderer; DSP stays in the native process.
+
+Settings includes Vietnamese / English with an Apply button, persisted in the local Electron profile. The audio settings and effect dialogs use sharper solid surfaces, compact padding, round corners and stronger moving neon edges without backdrop blur. About includes Hoài Nguyễn Studio and Zalo 0965.043.000. The top-center perforated ticker scrolls the requested introductory text right to left, translated in English mode.
+
+Audio regressions also verify multi-note automatic key detection, rejection of a single-note key guess, short/long echo timing and EQ activity driven by an actual 1kHz mic input. Electron UI tests cover language switching, automatic key display, popup controls and the About contact information.

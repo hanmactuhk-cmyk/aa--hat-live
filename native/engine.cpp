@@ -14,13 +14,14 @@
 #include "mic_analysis.h"
 #include "timeline.h"
 #include "timeline_test.h"
+#include "soundboard.h"
 using json=nlohmann::json;
 std::mutex stdoutMutex;
 void send(const json& value){std::lock_guard lock(stdoutMutex);std::cout<<value.dump()<<std::endl;}
 class Engine final : public juce::AudioIODeviceCallback,public juce::Timer {
  juce::AudioDeviceManager devices;juce::AudioPluginFormatManager formats;juce::TimeSliceThread disk{"WAV writer"};
  struct Slot{std::unique_ptr<juce::AudioPluginInstance> plugin;bool on=true,bypass=false;std::string path;};
- Timeline timeline{disk,formats};
+ Timeline timeline{disk,formats};Soundboard soundboard;
  std::array<Slot,4> slots;juce::AudioBuffer<float> vocal,musicBus,masterBus;juce::MidiBuffer midi;Loopback music;VocalDSP dsp;
  std::unique_ptr<juce::AudioFormatWriter::ThreadedWriter> recorder;
  std::atomic<unsigned> recordDrops{0};std::array<std::atomic<float>,3> peaks{};std::array<std::atomic<float>,128> waveform{};std::array<std::atomic<float>,128> micWave{},musicWave{};std::atomic<unsigned> waveIndex{0};unsigned waveCount=0;
@@ -49,7 +50,7 @@ class Engine final : public juce::AudioIODeviceCallback,public juce::Timer {
   auto error=devices.setAudioDeviceSetup(setup,true);if(error.isNotEmpty())throw std::runtime_error("Open audio: "+error.toStdString());
   auto* dev=devices.getCurrentAudioDevice();if(!dev)throw std::runtime_error("No output device");
   try{next.validate(dev->getInputChannelNames().size(),dev->getOutputChannelNames().size());if(dev->getActiveInputChannels().countNumberOfSetBits()!=next.requiredInputs()||dev->getActiveOutputChannels().countNumberOfSetBits()!=next.requiredOutputs())throw std::runtime_error("Driver did not activate the selected port range");}catch(...){devices.closeAudioDevice();throw;}
-  routing=next;rate=dev->getCurrentSampleRate();block=dev->getCurrentBufferSizeSamples();vocal.setSize(2,std::max(block,8192));musicBus.setSize(2,std::max(block,8192));masterBus.setSize(2,std::max(block,8192));dsp.prepare(rate);applyDSP(settings);timeline.prepare(rate,block);limiterGain=1;
+  routing=next;rate=dev->getCurrentSampleRate();block=dev->getCurrentBufferSizeSamples();vocal.setSize(2,std::max(block,8192));musicBus.setSize(2,std::max(block,8192));masterBus.setSize(2,std::max(block,8192));dsp.prepare(rate);applyDSP(settings);timeline.prepare(rate,block);soundboard.prepare(rate,block);limiterGain=1;
   for(auto& s:slots)if(s.plugin){s.plugin->releaseResources();s.plugin->setRateAndBufferSizeDetails(rate,block);s.plugin->prepareToPlay(rate,block);}
   settings["backend"]=backend;settings["input"]=setup.inputDeviceName.toStdString();settings["output"]=setup.outputDeviceName.toStdString();settings["sampleRate"]=rate;settings["bufferSize"]=block;attach();
  }
@@ -112,10 +113,13 @@ public:
  Engine(){formats.addFormat(new juce::VST3PluginFormat());disk.startThread();settings={{"eqGains",std::vector<float>(13,0)}};startTimerHz(25);}
  ~Engine(){stopTimer();detach();music.stop();recorder.reset();timeline.writer.reset();for(auto& s:slots)if(s.plugin)s.plugin->releaseResources();devices.closeAudioDevice();disk.stopThread(5000);}
  json command(const json& request){std::string op=request.at("op");auto c=request.value("data",json::object());
+  if(op=="soundboard"){auto action=c.value("action",std::string("state"));if(action=="trigger"){if(!devices.getCurrentAudioDevice())throw std::runtime_error("Áp dụng thiết bị âm thanh trước");soundboard.trigger(c.at("pad"));}else if(action=="stop"){detach();soundboard.stop();if(devices.getCurrentAudioDevice())attach();}else if(action=="volume"){float v=c.at("volume");if(!std::isfinite(v)||v<0||v>1.5)throw std::runtime_error("Âm lượng sound pad không hợp lệ");detach();soundboard.volume=v;if(devices.getCurrentAudioDevice())attach();}else if(action=="load"){detach();try{soundboard.load(c.at("pad"),c.at("path"));if(devices.getCurrentAudioDevice())attach();}catch(...){if(devices.getCurrentAudioDevice())attach();throw;}}else if(action!="state")throw std::runtime_error("Soundboard action không hợp lệ");return soundboard.info();}
   if(op=="timeline"){detach();try{auto action=c.value("action",std::string("state"));int track=c.value("track",0);if(track<0||track>=4)throw std::runtime_error("Track index không hợp lệ");
-   if(action=="state"){}else if(action=="load"){timeline.requireStopped();timeline.load(track,c.at("path"));}
-   else if(action=="edit"){timeline.requireStopped();auto& t=timeline.tracks[track];if(c.value("trimIn",t.trimIn)+c.value("trimOut",t.trimOut)>t.audio.getNumSamples()/t.sourceRate)throw std::runtime_error("Điểm cắt vượt độ dài clip");timeline.edit(track,c);}
-   else if(action=="remove"){timeline.requireStopped();auto& t=timeline.tracks[track];t.audio.setSize(2,0);t.path.clear();t.trimIn=t.trimOut=t.start=0;}
+   if(action=="state"){}else if(action=="load"){timeline.requireStopped();timeline.load(track,c.at("path"),c.value("start",timeline.position.load()));}
+   else if(action=="edit"){timeline.requireStopped();timeline.edit(track,c);}
+   else if(action=="remove"){timeline.requireStopped();timeline.removeClip(track,c.value("clip",-1));}
+   else if(action=="move"){timeline.requireStopped();timeline.moveClip(track,c.at("clip"),c.at("target"),c.at("start"));}
+   else if(action=="split"){timeline.requireStopped();timeline.splitClip(track,c.at("clip"),c.at("position"));}
    else if(action=="seek"){timeline.requireStopped();double p=c.at("position");if(!std::isfinite(p)||p<0||p>1800)throw std::runtime_error("Vị trí không hợp lệ");timeline.position=p;timeline.resetEffects();}
    else if(action=="play"){if(!devices.getCurrentAudioDevice())throw std::runtime_error("Áp dụng thiết bị âm thanh trước");timeline.requireStopped();if(timeline.duration()<=0)throw std::runtime_error("Nạp beat hoặc thu mic trước");timeline.resetEffects();timeline.playing=true;}
    else if(action=="stop")timeline.stop();
@@ -150,13 +154,13 @@ public:
   auto readMic=[&](int i){float value=active?Routing::read(in,ins,routing.asio?routing.mic:0,i):0;timeline.capture.setSample(0,i,value);pm=std::max(pm,std::abs(value));if(active&&autoState.load(std::memory_order_relaxed)==1){micAnalysis.feed(value);auto frames=autoFrames.fetch_add(1)+1;if(frames>=static_cast<unsigned long long>(rate*6))autoState.store(2,std::memory_order_release);}return value;};
   BusMixer::vocal(n,readMic,[&](int i,float value){vocal.setSample(0,i,value);vocal.setSample(1,i,value);},dsp);
   if(active){juce::AudioBuffer<float> b(vocal.getArrayOfWritePointers(),2,n);midi.clear();for(auto& s:slots)if(s.plugin&&s.on&&!s.bypass)s.plugin->processBlock(b,midi);}
-  timeline.render(n,timeline.capture.getReadPointer(0));
+  timeline.render(n,timeline.capture.getReadPointer(0));soundboard.render(n);
   if(active&&!routing.asio&&!primed&&music.queue.size()>=unsigned(block*2))primed=true;
   // Keep latency bounded when independent capture/output clocks drift.
   if(music.queue.size()>unsigned(rate*.15))for(int drop=0;drop<n&&music.queue.size()>unsigned(block*3);++drop)music.queue.pop();
   for(int i=0;i<n;++i){auto m=active&&!transportActive?(routing.asio?routing.music(in,ins,i):primed?music.queue.pop():std::array<float,2>{}):std::array<float,2>{};musicBus.setSample(0,i,m[0]);musicBus.setSample(1,i,m[1]);pu=std::max({pu,std::abs(m[0]),std::abs(m[1])});}
   for(int i=0;i<n;++i){std::array<float,2> m{musicBus.getSample(0,i),musicBus.getSample(1,i)};auto mix=BusMixer::sum(vocal.getSample(0,i),vocal.getSample(1,i),m,micVolume,musicVolume,masterVolume,listenMode);
-   int remaining=testSamples.load();float test=0;if(remaining>0){testSamples.fetch_sub(1);test=.10f*std::sin(float(oscillator));oscillator+=2*juce::MathConstants<double>::pi*440/rate;if(oscillator>2*juce::MathConstants<double>::pi)oscillator-=2*juce::MathConstants<double>::pi;}float rawL=mix[0]+timeline.mix.getSample(0,i)*masterVolume+test,rawR=mix[1]+timeline.mix.getSample(1,i)*masterVolume+test;float maximum=std::max(std::abs(rawL),std::abs(rawR));float desired=maximum>.97f?.97f/maximum:1.f;limiterGain=desired<limiterGain?desired:limiterGain+.0005f*(desired-limiterGain);float l=0,r=0;
+   int remaining=testSamples.load();float test=0;if(remaining>0){testSamples.fetch_sub(1);test=.10f*std::sin(float(oscillator));oscillator+=2*juce::MathConstants<double>::pi*440/rate;if(oscillator>2*juce::MathConstants<double>::pi)oscillator-=2*juce::MathConstants<double>::pi;}float rawL=mix[0]+(timeline.mix.getSample(0,i)+soundboard.mix.getSample(0,i))*masterVolume+test,rawR=mix[1]+(timeline.mix.getSample(1,i)+soundboard.mix.getSample(1,i))*masterVolume+test;float maximum=std::max(std::abs(rawL),std::abs(rawR));float desired=maximum>.97f?.97f/maximum:1.f;limiterGain=desired<limiterGain?desired:limiterGain+.0005f*(desired-limiterGain);float l=0,r=0;
    for(int ch=0;ch<2;++ch){float value=(ch==0?rawL:rawR)*limiterGain;value=std::clamp(std::isfinite(value)?value:0.f,-.97f,.97f);masterBus.setSample(ch,i,value);if(ch==0)l=value;else r=value;pt=std::max(pt,std::abs(value));}
    routing.write(out,outs,i,l,r);if(++waveCount>=unsigned(std::max(1,int(rate/3200)))){auto index=waveIndex++%128;waveform[index]=(l+r)*.5f;micWave[index]=(vocal.getSample(0,i)+vocal.getSample(1,i))*.5f*micVolume;musicWave[index]=(m[0]+m[1])*.5f*musicVolume;waveCount=0;}
   }

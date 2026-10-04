@@ -25,6 +25,10 @@ jobs:
         run: ./build/native/Release/hn-dsp-selftest.exe
       - name: Native ASIO routing self-test
         run: ./build/native/Release/hn-routing-selftest.exe
+      - name: Native bus isolation, pitch correction and Auto Vocal regression
+        run: ./build/native/Release/hn-audio-regression.exe
+      - name: Electron popup and control smoke test
+        run: node tests/run-ui-smoke.cjs
       - name: Native backend startup smoke test
         run: node tests/backend-smoke.cjs
       - name: Package Electron
@@ -43,4 +47,10 @@ jobs:
           name: HNStudio-Musik-AI-Windows-x64
           path: |
             dist/*.exe
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HNStudio-UI-Preview
+          path: build/ui/*.png
           if-no-files-found: error

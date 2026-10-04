@@ -1,4 +1,4 @@
-# HNStudio Musik AI 1.1.0
+# HNStudio Musik AI 1.2.0
 
 Electron UI + native Windows x64 JUCE engine. Native audio is built in Release by GitHub Actions, packaged into both installer and portable EXE. UI animation runs outside the native audio process.
 
@@ -43,3 +43,11 @@ GitHub Actions performs these steps and uploads HNStudio-Musik-AI-Windows-x64 wi
 ## License
 
 Project: AGPL-3.0-only. JUCE is used under its open-source licensing terms. ASIO interface headers from Steinberg are used under their GPLv3 alternative; see native/vendor/asio/LICENSE.txt and README.md. ASIO Link Pro is an external driver and is not redistributed.
+
+## v1.2 studio layout and mic-only processing
+
+Audio Settings, built-in FX, EQ, AutoTune, project operations and VST parameters open in dialogs from the compact studio dashboard. The signal graph has separate vocal, dry music and master buffers. The vocal DSP and VST3 inserts only see the selected MIC port. Music gets Music Volume, then the shared Master Volume and protective limiter. Use MIC ONLY / MUSIC ONLY to diagnose input routing. If music is already present in the MIC input supplied by XOX/ASIO Link Pro, the app cannot split that premixed input into independent sources; remove the music route into that MIC port in the driver/hardware setup.
+
+Auto Vocal measures six seconds of the live microphone and derives gate threshold, compressor threshold/ratio, EQ, de-essing, wet level and mic gain. It rejects insufficient/silent input. The overall Auto amount adjusts the measured vocal treatment; individual faders can override the result. External VST parameters stay manual. AutoTune offers ON/OFF, scale or chromatic correction, correction strength and retune speed, with detected/target pitch telemetry. Auto Key estimates a major/minor key from microphone note history; it cannot reliably infer accompaniment key from a single vocal note.
+
+Regression tests verify dry music stays sample-identical through an aggressively configured mic DSP/mock VST chain, actual 450 Hz mic output is corrected toward A440, and Auto Vocal settings react to input level at 44.1/48/96 kHz. Windows CI also launches the actual Electron renderer with a clearly mocked audio bridge to check popup/control wiring and capture UI previews. These UI tests do not establish physical ASIO routing correctness.

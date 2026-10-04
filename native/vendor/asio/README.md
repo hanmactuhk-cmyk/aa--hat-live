@@ -1,0 +1,1 @@
+ASIO interface headers copied unchanged from JUCE commit be29c81492b6151c8ea8d14c840e1311963b3a83, modules/juce_audio_devices/native/asio. Copyright Steinberg Media Technologies. This AGPL project uses the GPL v3 licensing option specified in LICENSE.txt. These are interface headers only, not the ASIO Link Pro driver.

@@ -23,6 +23,8 @@ jobs:
         run: cmake --build build/native --config Release --parallel 2
       - name: Native DSP self-test
         run: ./build/native/Release/hn-dsp-selftest.exe
+      - name: Native ASIO routing self-test
+        run: ./build/native/Release/hn-routing-selftest.exe
       - name: Native backend startup smoke test
         run: node tests/backend-smoke.cjs
       - name: Package Electron

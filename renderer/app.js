@@ -51,3 +51,8 @@ $('language').value=window.hnLocale.language;$('applyLanguage').onclick=()=>{win
 renderSettings();renderTransport();draw();window.hnLocale.start();
 
 document.getElementById('asioDownload').addEventListener('click',e=>{e.preventDefault();studio.downloadAsio().catch(error=>console.error(error));});
+
+window.hnEnsureAudio=async()=>{if(!ready)throw new Error('Native audio chưa sẵn sàng');if(!configured)await configure();};
+
+$('scanLiveVst').onclick=()=>run(async()=>{const result=await window.studio.timeline({action:'plugins'});fillSelect('livePluginLibrary',(result.plugins||[]).map(p=>p.name));const list=result.plugins||[];Array.from($('livePluginLibrary').options).forEach((o,i)=>o.value=list[i].path);const auto=list.find(p=>/auto.?tune/i.test(p.name));if(auto)$('livePluginLibrary').value=auto.path;$('livePluginHint').textContent=list.length?`${list.length} VST3`:'Chưa tìm thấy VST3. Cài plugin x64 dạng VST3 rồi quét lại.';});
+$('loadLiveInstalled').onclick=()=>run(async()=>{if(!$('livePluginLibrary').value||!/.vst3$/i.test($('livePluginLibrary').value))throw new Error('Chọn VST3 đã cài trước');const i=Number($('livePluginSlot').value);updateSlot(i,await window.studio.slot(i,'installed',{path:$('livePluginLibrary').value}));});

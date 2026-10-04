@@ -27,6 +27,8 @@ jobs:
         run: ./build/native/Release/hn-routing-selftest.exe
       - name: Native bus isolation, pitch correction and Auto Vocal regression
         run: ./build/native/Release/hn-audio-regression.exe
+      - name: Native multitrack recording and mix export test
+        run: ./build/native/Release/hn-audio.exe --timeline-self-test
       - name: Electron popup and control smoke test
         run: node tests/run-ui-smoke.cjs
       - name: Native backend startup smoke test

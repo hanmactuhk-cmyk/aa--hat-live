@@ -1,5 +1,6 @@
 const {contextBridge,ipcRenderer}=require('electron');
 contextBridge.exposeInMainWorld('studio',{
+ timeline:data=>ipcRenderer.invoke('audio:timeline',data),
  downloadAsio:()=>ipcRenderer.invoke('ui:asio-download'),
  setLanguage:language=>ipcRenderer.invoke('ui:language',language),
  command:(op,data)=>ipcRenderer.invoke('audio:command',op,data),

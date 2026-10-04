@@ -1,10 +1,11 @@
 // UI smoke-test bridge only; the production build uses electron/preload.cjs.
 const {contextBridge,ipcRenderer}=require('electron');
-let state={},listener;const changes=[];
+let state={},listeners=[];let timelineState={position:0,duration:10,playing:false,recording:false,armed:1,tracks:Array.from({length:4},(_,index)=>({index,path:index===0?'Beat.wav':'',start:0,trimIn:0,trimOut:0,sourceDuration:10,duration:index===0?10:0,gain:1,pan:0,mute:false,solo:false,wave:Array(800).fill(.2),fx:{enabled:false,gate:false,compressor:false,eq:false,deesser:false,tune:false,reverb:false,autoKey:true,gateDb:-50,compressorDb:-18,ratio:3,reverbWet:.18,tuneStrength:.8,tuneSpeed:35,eqGains:Array(13).fill(0)},inserts:Array.from({length:4},()=>({path:'',on:true,bypass:false,parameters:[]}))}))};const changes=[];
 contextBridge.exposeInMainWorld('studio',{
+ timeline:async data=>{changes.push({op:'timeline',data});if(data.action==='plugins')return {plugins:[{name:'Auto-Tune.vst3',path:'Auto-Tune.vst3'}]};if(data.action==='edit')Object.assign(timelineState.tracks[data.track],data);if(data.action==='play')timelineState.playing=true;if(data.action==='record'){timelineState.playing=true;timelineState.recording=true;}if(data.action==='stop'){timelineState.playing=false;timelineState.recording=false;}if(data.action==='seek')timelineState.position=data.position;if(data.action==='save')return {saved:'test.hnrec'};return timelineState;},
  command:async(op,data={})=>{changes.push({op,data});if(op==='devices')return {inputs:['Line (XOX K10)'],outputs:['Speakers (XOX K10)'],drivers:['ASIO Link Pro']};if(op==='ports')return {inputs:['In 1','In 2','LinkIn3','LinkIn4'],outputs:['Out 1','Out 2','LinkOut3','LinkOut4']};if(op==='configure'||op==='params'){state={...state,...data};return state;}if(op==='live')return {live:data.on,source:'ASIO input ports'};if(op==='test')return {output:state.driver,duration:2};if(op==='key-reset'){state.autoKey=true;return state;}if(op==='auto-vocal')return {running:!data.cancel};if(op==='auto-amount'){state.autoAmount=data.autoAmount;return state;}if(op==='control-panel')return {opened:true};throw Error(op);},
  slot:async(i,action,value)=>({path:action==='remove'?'':'Test Vocal.vst3',on:action==='on'?value:true,bypass:action==='bypass'?value:false,parameters:[{name:'Dry / Wet',value:.5}]}),
  record:async(on)=>({recording:on}),project:async()=>({...state,slots:Array(4).fill({path:'',on:true,bypass:false})}),exportLog:async()=>true,
- onEvent:fn=>{listener=fn;setTimeout(()=>fn({event:'ready',backend:'UI test bridge'}),50);}
+ onEvent:fn=>{listeners.push(fn);setTimeout(()=>fn({event:'ready',backend:'UI test bridge'}),50);}
 });
-contextBridge.exposeInMainWorld('testBridge',{changes:()=>changes,emit:data=>listener?.(data)});
+contextBridge.exposeInMainWorld('testBridge',{changes:()=>changes,emit:data=>listeners.forEach(fn=>fn(data))});

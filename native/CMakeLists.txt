@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(HNAudio VERSION 1.5.0 LANGUAGES C CXX)
+project(HNAudio VERSION 1.6.0 LANGUAGES C CXX)
 if(NOT WIN32)
  message(FATAL_ERROR "Native audio requires Windows x64 and Windows SDK")
 endif()

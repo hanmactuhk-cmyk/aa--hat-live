@@ -1,6 +1,6 @@
 {
   "name": "hnstudio-musik-ai",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "description": "Electron live vocal studio with Windows native audio",
   "main": "electron/main.cjs",
   "author": "Hoài Nguyễn Studio",

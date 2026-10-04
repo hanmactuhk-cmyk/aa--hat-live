@@ -32,6 +32,17 @@ int main() {
             return 3;
         }
     }
+    // Reverb must generate a decaying tail, preserve the dry onset and remain stable.
+    VocalDSP room;room.prepare(48000);room.gate=room.compressor=room.equalizer=room.deesser=room.autoKey=false;room.wet=.4f;room.reverbDecay=1.6f;
+    double early=0,late=0;float onset=room.process(.5f);
+    if(std::abs(onset-.5f)>1e-6)return 4;
+    for(int i=1;i<48000*6;++i){float v=room.process(0);if(!std::isfinite(v)||std::abs(v)>1)return 5;if(i<48000)early+=v*v;if(i>48000*5)late+=v*v;}
+    if(early<1e-6||late>early*.01)return 6;
+    // Low-cut must attenuate rumble while warmth/air remain audible and bounded.
+    VocalDSP clean;clean.prepare(48000);clean.gate=clean.compressor=clean.equalizer=clean.deesser=clean.reverb=clean.autoKey=false;clean.highpass=true;clean.highpassHz=180;
+    double power=0;for(int i=0;i<48000;++i){float v=clean.process(.2f*std::sin(float(6.28318530718*40*i/48000)));if(i>24000)power+=v*v;}if(power>25)return 7;
+    clean.warmth=clean.air=true;for(int i=0;i<48000;++i){float v=clean.process(.2f*std::sin(float(6.28318530718*440*i/48000)));if(!std::isfinite(v)||std::abs(v)>1)return 8;}
+    if(neuralPitchConfidence(.99f,.1f,.073f,440)<.55f)return 9;
     std::cout << "DSP self-test passed: EQ, pitch/Auto Key, reverb, silence gate at 44.1/48/96 kHz\n";
     return 0;
 }

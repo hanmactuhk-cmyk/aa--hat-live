@@ -59,15 +59,17 @@ class Engine final : public juce::AudioIODeviceCallback,public juce::Timer {
   dsp.tuneSpeed=c.value("tuneSpeed",35.f);dsp.chromatic=c.value("tuneMode",std::string("scale"))=="chromatic";
   micVolume=c.value("micVolume",.8f);musicVolume=c.value("musicVolume",.5f);masterVolume=c.value("masterVolume",.7f);
   dsp.gate=c.value("gate",true);dsp.compressor=c.value("compressor",true);dsp.equalizer=c.value("eq",true);dsp.deesser=c.value("deesser",true);dsp.tune=c.value("tune",false);dsp.reverb=c.value("reverb",true);dsp.autoKey=c.value("autoKey",true);
+  dsp.aiAssist=c.value("aiAssist",true);dsp.highpass=c.value("highpass",false);dsp.warmth=c.value("warmth",false);dsp.air=c.value("air",false);dsp.highpassHz=c.value("highpassHz",80.f);dsp.warmthAmount=c.value("warmthAmount",.2f);dsp.airAmount=c.value("airAmount",.15f);dsp.reverbDecay=c.value("reverbDecay",1.8f);dsp.reverbDamping=c.value("reverbDamping",.55f);dsp.reverbPre=c.value("reverbPre",25.f);
   dsp.shortEcho=c.value("shortEcho",false);dsp.longEcho=c.value("longEcho",false);dsp.shortWet=c.value("shortWet",.15f);dsp.longWet=c.value("longWet",.18f);dsp.shortMs=c.value("shortMs",120.f);dsp.longMs=c.value("longMs",380.f);dsp.shortFeedback=c.value("shortFeedback",.2f);dsp.longFeedback=c.value("longFeedback",.4f);
   dsp.gateDb=c.value("gateDb",-50.f);dsp.threshold=c.value("compressorDb",-18.f);dsp.ratio=c.value("ratio",3.f);dsp.essAmount=c.value("essAmount",.5f);dsp.wet=c.value("reverbWet",.18f);dsp.tuneStrength=c.value("tuneStrength",.8f);
   std::string key=c.value("key",std::string("C"));dsp.minor=key.back()=='m';auto root=dsp.minor?key.substr(0,key.size()-1):key;const std::array<std::string,12> names{"C","C#","D","D#","E","F","F#","G","G#","A","A#","B"};auto it=std::find(names.begin(),names.end(),root);dsp.key=it==names.end()?0:int(it-names.begin());
   auto gains=c.value("eqGains",std::vector<float>(13,0));for(int i=0;i<13;++i)dsp.eq[i].peak(rate,VocalDSP::hz[i],gains.at(i));
  }
  void validate(const json& c){
-  for(auto name:{"gate","compressor","eq","deesser","tune","reverb","autoKey","shortEcho","longEcho"})if(c.contains(name)&&!c[name].is_boolean())throw std::runtime_error("Invalid effect toggle");
+  for(auto name:{"gate","compressor","eq","deesser","tune","reverb","autoKey","shortEcho","longEcho","highpass","warmth","air","aiAssist"})if(c.contains(name)&&!c[name].is_boolean())throw std::runtime_error("Invalid effect toggle");
   for(auto name:{"micVolume","musicVolume","masterVolume"})if(c.contains(name)&&(!c[name].is_number()||c[name].get<double>()<0||c[name].get<double>()>2))throw std::runtime_error("Invalid volume");
   auto range=[&](const char* name,double lo,double hi){if(c.contains(name)&&(!c[name].is_number()||c[name].get<double>()<lo||c[name].get<double>()>hi))throw std::runtime_error(std::string("Invalid ")+name);};
+  range("highpassHz",40,250);range("warmthAmount",0,1);range("airAmount",0,1);range("reverbDecay",.25,5);range("reverbDamping",0,1);range("reverbPre",0,120);
   range("gateDb",-90,0);range("compressorDb",-60,0);range("ratio",1,20);range("essAmount",0,1);range("reverbWet",0,1);range("tuneStrength",0,1);range("tuneSpeed",1,250);range("autoAmount",0,1);range("shortWet",0,.8);range("longWet",0,.8);range("shortMs",60,300);range("longMs",250,900);range("shortFeedback",0,.75);range("longFeedback",0,.75);
   if(c.contains("eqGains")){if(!c["eqGains"].is_array()||c["eqGains"].size()!=13)throw std::runtime_error("EQ needs 13 bands");for(auto& x:c["eqGains"])if(!x.is_number()||std::abs(x.get<double>())>18)throw std::runtime_error("Invalid EQ gain");}
   if(c.contains("sampleRate")&&c["sampleRate"]!=44100&&c["sampleRate"]!=48000&&c["sampleRate"]!=96000)throw std::runtime_error("Unsupported sample rate");

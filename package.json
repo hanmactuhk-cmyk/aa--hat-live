@@ -37,12 +37,15 @@
       "target": [
         "nsis",
         "portable"
-      ]
+      ],
+      "icon": "renderer/assets/icon.ico"
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "artifactName": "HNStudio-Musik-AI-Setup-${version}-${arch}.${ext}"
+      "artifactName": "HNStudio-Musik-AI-Setup-${version}-${arch}.${ext}",
+      "installerIcon": "renderer/assets/icon.ico",
+      "uninstallerIcon": "renderer/assets/icon.ico"
     },
     "portable": {
       "artifactName": "HNStudio-Musik-AI-${version}-${arch}.${ext}"

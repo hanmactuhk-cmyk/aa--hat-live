@@ -1,0 +1,24 @@
+name: Electron UI interaction checks
+on:
+  push:
+    paths:
+      - 'renderer/**'
+      - 'tests/**'
+      - '.github/workflows/ui-check.yml'
+  workflow_dispatch:
+jobs:
+  ui:
+    runs-on: windows-2022
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --no-audit --no-fund
+      - run: node tests/run-ui-smoke.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: HNStudio-UI-Interaction-Check
+          path: build/ui/*.png

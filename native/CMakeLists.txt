@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(HNAudio VERSION 1.6.0 LANGUAGES C CXX)
+project(HNAudio VERSION 1.7.0 LANGUAGES C CXX)
 if(NOT WIN32)
  message(FATAL_ERROR "Native audio requires Windows x64 and Windows SDK")
 endif()
@@ -31,3 +31,35 @@ endif()
 
 add_executable(hn-audio-regression ../tests/audio_regression.cpp)
 target_compile_features(hn-audio-regression PRIVATE cxx_std_20)
+
+# Bundled, original stereo Delay VST3. The live host places this AFTER mic inserts.
+juce_add_plugin(HNDelay
+ COMPANY_NAME "Hoai Nguyen Studio"
+ BUNDLE_ID "studio.hoai.hndelay"
+ PLUGIN_MANUFACTURER_CODE Hnst
+ PLUGIN_CODE Hndl
+ FORMATS VST3
+ PRODUCT_NAME "HNStudio Delay"
+ IS_SYNTH FALSE NEEDS_MIDI_INPUT FALSE NEEDS_MIDI_OUTPUT FALSE
+ COPY_PLUGIN_AFTER_BUILD FALSE)
+target_sources(HNDelay PRIVATE plugins/delay_plugin.cpp)
+target_link_libraries(HNDelay PRIVATE juce::juce_audio_utils)
+target_compile_definitions(HNDelay PUBLIC JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_VST3_CAN_REPLACE_VST2=0)
+if(MSVC)
+ target_compile_options(HNDelay PRIVATE /utf-8)
+endif()
+juce_add_plugin(HNMaster
+ COMPANY_NAME "Hoai Nguyen Studio"
+ BUNDLE_ID "studio.hoai.hnmaster"
+ PLUGIN_MANUFACTURER_CODE Hnst PLUGIN_CODE Hnms
+ FORMATS VST3 PRODUCT_NAME "HNStudio Master"
+ IS_SYNTH FALSE NEEDS_MIDI_INPUT FALSE NEEDS_MIDI_OUTPUT FALSE
+ COPY_PLUGIN_AFTER_BUILD FALSE)
+target_sources(HNMaster PRIVATE plugins/master_plugin.cpp)
+target_link_libraries(HNMaster PRIVATE juce::juce_audio_utils)
+target_compile_definitions(HNMaster PUBLIC JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_VST3_CAN_REPLACE_VST2=0)
+if(MSVC)
+ target_compile_options(HNMaster PRIVATE /utf-8)
+endif()
+add_executable(hn-postfx-selftest ../tests/postfx_test.cpp)
+target_compile_features(hn-postfx-selftest PRIVATE cxx_std_20)

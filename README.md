@@ -16,11 +16,11 @@ The initial port suggestions use names from the reference Cubase setup where ava
 
 ## Signal flow
 
-MIC ASIO input → Gate → Compressor → EQ13 → De-Esser → Pitch correction → Reverb → VST3 slots → Mic Volume.
+MIC ASIO input → Low cut / Gate → Compressor → EQ13 → De-Esser → Pitch correction / vocal tone → VST3 slots → Stereo Reverb / Echo → HNStudio Delay VST3 → Mic Volume.
 
 Windows audio → ASIO Link Pro virtual playback → selected MUSIC input pair → Music Volume.
 
-MIC + MUSIC → Master Volume → Limiter → Monitor output pair + optional second Master output pair. Recorder writes the same stereo Master as 24-bit WAV using a background writer.
+MIC + MUSIC → HNStudio Master VST3 → Master Volume → Limiter → Monitor output pair + optional second Master output pair. Recorder writes the same stereo Master as 24-bit WAV using a background writer.
 
 ASIO mode does not start WASAPI loopback. WASAPI remains selectable for ordinary Windows devices; loopback copies system playback and does not silence its direct path, so using the same hardware output can duplicate music.
 
@@ -73,3 +73,11 @@ Limitations: maximum four tracks / 64 clips per track, no automation lanes or pl
 Each track has R (record arm), M (mute), Solo, volume and independent FX/VST3. Space plays/stops, R starts/stops a take, S splits the selected clip at the playhead, Delete removes it, M mutes the selected track, Home seeks to zero, 1–4 arm the corresponding track. Shortcuts are suppressed in dialogs and text/range/select inputs. All four tracks may record the selected microphone.
 
 Six original synthesized stingers (laugh-like vocal, applause, boing, chime, drum roll, horn) mix into native Master before the limiter and therefore reach monitor/live-send/Master recorder outputs. Pads can load a user's own audio sample up to 30 seconds. They bypass vocal DSP/VST3. GUI intro/ripple/pad animations respect reduced-motion settings and run separately from the audio callback.
+
+## 1.7: post-insert ambience and bundled VST3
+
+HNStudio Delay and HNStudio Master are original Windows x64 VST3 plugins bundled with the backend. They are automatically loaded into dedicated post-vocal and Master positions; their ON/OFF controls and compact floating panels send real plugin parameters. The installed-plugin scan also includes these bundled plugins for use on recording tracks. Save/Load restores their settings. Recording-track built-in reverb also follows its four external inserts.
+
+Delay provides stereo ping-pong, millisecond or manually entered BPM sync, beat division, filtered feedback and ducking. Reverb uses an eight-line stereo feedback network with damping, pre-delay and width. Master provides Low/Mid/High tone, Thickness, Glue, Width (bass width retained) and Loudness with soft clipping; the final safety limiter remains active. HNStudio Master is an original implementation of this general class of processing, not Musik Hack Master Plan and not a claim of matching its sound, algorithms or true-peak specifications.
+
+CI scans and hosts the actual built VST3 binaries, checks real delayed output and Master gain changes, verifies state restoration and confirms both bundles are packaged. Hearing quality on a real singer and K10 still needs listening evaluation.

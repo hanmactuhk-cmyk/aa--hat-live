@@ -1,6 +1,6 @@
 {
   "name": "hnstudio-musik-ai",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "description": "Electron live vocal studio with Windows native audio",
   "main": "electron/main.cjs",
   "author": "Hoài Nguyễn Studio",
@@ -28,6 +28,14 @@
       {
         "from": "build/native/Release/hn-audio.exe",
         "to": "native/hn-audio.exe"
+      },
+      {
+        "from": "build/native/HNDelay_artefacts/Release/VST3/HNStudio Delay.vst3",
+        "to": "native/plugins/HNStudio Delay.vst3"
+      },
+      {
+        "from": "build/native/HNMaster_artefacts/Release/VST3/HNStudio Master.vst3",
+        "to": "native/plugins/HNStudio Master.vst3"
       }
     ],
     "directories": {

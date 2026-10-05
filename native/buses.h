@@ -8,5 +8,7 @@ struct BusMixer {
   return {(vocalL*micGain+music[0]*musicGain)*masterGain,(vocalR*micGain+music[1]*musicGain)*masterGain};
  }
  template<class MicReader,class VocalWriter,class Processor>
+ static void vocalDry(int samples,MicReader read,VocalWriter write,Processor& dsp){for(int i=0;i<samples;++i)write(i,dsp.processDry(read(i)));}
+ template<class MicReader,class VocalWriter,class Processor>
  static void vocal(int samples,MicReader read,VocalWriter write,Processor& dsp){for(int i=0;i<samples;++i)write(i,dsp.process(read(i)));}
 };

@@ -21,6 +21,10 @@ jobs:
         run: cmake -S native -B build/native -A x64
       - name: Build native audio
         run: cmake --build build/native --config Release --parallel 2
+      - name: Post VST ambience and Master DSP test
+        run: ./build/native/Release/hn-postfx-selftest.exe
+      - name: Real bundled VST3 scan and processing test
+        run: ./build/native/Release/hn-audio.exe --bundled-vst-self-test "build/native/HNDelay_artefacts/Release/VST3/HNStudio Delay.vst3" "build/native/HNMaster_artefacts/Release/VST3/HNStudio Master.vst3"
       - name: Native DSP self-test
         run: ./build/native/Release/hn-dsp-selftest.exe
       - name: Native ASIO routing self-test
@@ -42,6 +46,8 @@ jobs:
         shell: pwsh
         run: |
           if (!(Test-Path dist/win-unpacked/resources/native/hn-audio.exe)) { throw "Native backend missing" }
+          if (!(Test-Path "dist/win-unpacked/resources/native/plugins/HNStudio Delay.vst3/Contents/x86_64-win/HNStudio Delay.vst3")) { throw "Bundled Delay VST3 missing" }
+          if (!(Test-Path "dist/win-unpacked/resources/native/plugins/HNStudio Master.vst3/Contents/x86_64-win/HNStudio Master.vst3")) { throw "Bundled Master VST3 missing" }
           $exe = Get-ChildItem dist/*.exe
           if ($exe.Count -lt 2) { throw "Installer or portable EXE missing" }
       - uses: actions/upload-artifact@v4
